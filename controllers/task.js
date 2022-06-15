@@ -13,7 +13,7 @@ exports.create = asyncHandler(async (req, res, next) => {
   //create task
   const task = await Task.create({ title, user_id });
   //send response
-  return res.status(200).json({
+  return res.status(201).json({
     success: true,
     data: task,
   });
@@ -24,14 +24,46 @@ exports.create = asyncHandler(async (req, res, next) => {
 // @access PRIVATE
 
 exports.getAll = asyncHandler(async (req, res, next) => {
+  let page = 1;
+  let limit = 1;
+  let now;
+
   // Get all taks that belongs the user
-  const tasks = await Task.find({ user_id: req.user._id });
+  let tasks = Task.find({ user_id: req.user._id });
+  let total = await Task.countDocuments();
+
+  //check if there page query parameter
+  if (req.query.page) {
+    page = parseInt(req.query.page);
+  }
+  if (req.query.limit) {
+    limit = parseInt(req.query.limit);
+  }
+  now = page;
+
+  // set the skip
+  const skip = (page - 1) * limit;
+  const pagination = {};
+
+  // set previous
+  if (page > 1) {
+    pagination.prev = now - 1;
+  }
+
+  // set next
+  if (total > page * limit) {
+    pagination.next = now + 1;
+  }
+
+  tasks = await tasks.skip(skip).limit(limit);
 
   // Send response
   return res.status(200).json({
     success: true,
     data: tasks,
     count: tasks.length,
+    total: total,
+    pagination: pagination,
   });
 });
 
@@ -96,8 +128,6 @@ exports.update = asyncHandler(async (req, res, next) => {
 // @desc Delete task
 // @route Delete /api/v1/tasks/:taskId
 // @access PRIVATE
-
-
 
 exports.deleteTask = asyncHandler(async (req, res, next) => {
   //find by task id and user id and delete
